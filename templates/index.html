@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Inventory Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+        .container {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: auto;
+        }
+        h2 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2rem;
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 0.8rem;
+            text-align: center;
+        }
+        table th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        input, button {
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+        }
+        canvas {
+            display: block;
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Smart Inventory Tracker</h1>
+        <p>Manage inventory and forecast future needs seamlessly</p>
+    </header>
+    <div class="container">
+        <section>
+            <h2>Inventory Overview</h2>
+            <table id="inventory-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Location</th>
+                        <th>Stock</th>
+                        <th>Reorder Level</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+        <section>
+            <h2>Add New Product</h2>
+            <form id="add-product-form">
+                <input type="text" id="product-name" placeholder="Product Name" required>
+                <input type="text" id="location" placeholder="Location" required>
+                <input type="number" id="stock" placeholder="Stock" required>
+                <input type="number" id="reorder-level" placeholder="Reorder Level" required>
+                <button type="submit" class="btn">Add Product</button>
+            </form>
+        </section>
+        <section>
+            <h2>Inventory Forecast</h2>
+            <canvas id="forecast-chart" width="800" height="400"></canvas>
+        </section>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        async function loadInventory() {
+            const response = await fetch('/api/inventory');
+            const inventory = await response.json();
+            const tableBody = document.querySelector('#inventory-table tbody');
+            tableBody.innerHTML = '';
+            inventory.forEach(item => {
+                tableBody.innerHTML += `
+                    <tr>
+                        <td>${item.product}</td>
+                        <td>${item.location}</td>
+                        <td>${item.stock}</td>
+                        <td>${item.reorder_level}</td>
+                        <td><button class="btn" onclick="replenishStock(${item.id})">Replenish</button></td>
+                    </tr>`;
+            });
+        }
+
+        async function addProduct(event) {
+            event.preventDefault();
+            const product = document.getElementById('product-name').value;
+            const location = document.getElementById('location').value;
+            const stock = document.getElementById('stock').value;
+            const reorderLevel = document.getElementById('reorder-level').value;
+
+            const response = await fetch('/api/add_product', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product, location, stock, reorder_level: reorderLevel })
+            });
+            const result = await response.json();
+            alert(result.message || result.error);
+            loadInventory();
+        }
+
+        async function replenishStock(id) {
+            const quantity = prompt("Enter quantity to replenish:");
+            if (quantity) {
+                const response = await fetch('/api/replenish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, quantity })
+                });
+                const result = await response.json();
+                alert(result.message || result.error);
+                loadInventory();
+            }
+        }
+
+        async function loadForecast() {
+            const response = await fetch('/api/forecast');
+            const forecast = await response.json();
+            const ctx = document.getElementById('forecast-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: forecast.labels,
+                    datasets: [{
+                        label: 'Inventory Forecast',
+                        data: forecast.data,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('add-product-form').addEventListener('submit', addProduct);
+        loadInventory();
+        loadForecast();
+    </script>
+</body>
+</html>
